@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string>
 #include <Windows.h>
 #include <fstream>
 #include "PEBex.h"
@@ -127,14 +128,34 @@ void DebugOutputCommandLine(HANDLE hProcess, PRTL_USER_PROCESS_PARAMETERS pParam
     free(pCommandLineBuffer);
 }
 
+
 int main(int argc, char* argv[]) {
-    if (argc < 3) {
-        std::cerr << "Usage: " << argv[0] << " <targetExecutable> <spoofedCommand>\n";
+    bool inputMode = false;
+    const char* targetExecutable = nullptr;
+    std::wstring spoofedCommand;
+
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--input") {
+            inputMode = true;
+        }
+        else if (!targetExecutable) {
+            targetExecutable = argv[i];
+        }
+        else {
+            spoofedCommand = formatCommand(charToWchar(argv[i]));
+        }
+    }
+
+    if (!targetExecutable) {
+        std::cerr << "Usage: " << argv[0] << " <targetExecutable> [--input or <spoofedCommand>]\n";
         return 1;
     }
 
-    const char* targetExecutable = argv[1];
-    const wchar_t* spoofedCommand = formatCommand(charToWchar(argv[2]));
+    if (!inputMode && spoofedCommand.empty()) {
+        std::cerr << "No command provided to spoof. Exiting.\n";
+        return 1;
+    }
 
 
     LPPROCESS_INFORMATION pProcess = CreateSuspendedProcess(targetExecutable);
@@ -144,7 +165,6 @@ int main(int argc, char* argv[]) {
 
     CONTEXT context = {};
     PROCESS_BASIC_INFORMATION pbi = {};
-
     if (!GetProcessBasicInformation(pProcess->hProcess, &pbi)) {
         return 1;
     }
@@ -159,12 +179,31 @@ int main(int argc, char* argv[]) {
         return 3;
     }
 
-    if (!WriteSpoofedCommandLine(pProcess->hProcess, &pParams, peb, spoofedCommand)) {
-        return 4;
+    if (inputMode) {
+        std::string line;
+            std::cout << "Enter spoofed command: ";
+            
+            while (line.empty()) {
+                std::getline(std::cin, line);
+            }
+
+            spoofedCommand = formatCommand(charToWchar(line.c_str()));
+            if (!WriteSpoofedCommandLine(pProcess->hProcess, &pParams, peb, spoofedCommand.c_str())) {
+                return 4;
+            }
+            //DebugOutputCommandLine(pProcess->hProcess, &pParams);
+    }
+    else {
+        if (!WriteSpoofedCommandLine(pProcess->hProcess, &pParams, peb, spoofedCommand.c_str())) {
+            return 4;
+        }
+        //DebugOutputCommandLine(pProcess->hProcess, &pParams);
     }
 
-    DebugOutputCommandLine(pProcess->hProcess, &pParams);
     ResumeThread(pProcess->hThread);
-
+    WaitForSingleObject(pProcess->hThread, INFINITY);
     return 0;
 }
+
+
+
