@@ -10,13 +10,14 @@ This tool allows execution of Windows processes with modified command line argum
 
 ## Usage
 ```bash
-ArgsSpoof.exe <targetExecutable> <spoofedCommand>
+ArgsSpoof.exe <targetExecutable> [--input or <spoofedCommand>]
 ```
 
 
 ## Example
 ```bash
 ArgsSpoof.exe "C:\Path\Executable.exe" "spoofArg1 spoofArg2"
+ArgsSpoof.exe "C:\Path\Executable.exe" --input
 ```
 
 
