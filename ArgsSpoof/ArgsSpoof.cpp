@@ -116,9 +116,10 @@ LPWSTR formatCommand(const wchar_t* commandLine) {
 }
 
 
-void DebugOutputCommandLine(HANDLE hProcess, PRTL_USER_PROCESS_PARAMETERS pParams) {
+void DebugOutputCommandLine(const char* targetExecutable, HANDLE hProcess, PRTL_USER_PROCESS_PARAMETERS pParams) {
     DWORD dwSize = pParams->CommandLine.Length;
     PVOID pCommandLineBuffer = malloc(dwSize);
+    std::cout << "\nRunning: " << targetExecutable;
     if (ReadProcessMemory(hProcess, pParams->CommandLine.Buffer, pCommandLineBuffer, dwSize, NULL)) {
         std::wcout << (wchar_t*)pCommandLineBuffer << std::endl;
     }
@@ -181,29 +182,32 @@ int main(int argc, char* argv[]) {
 
     if (inputMode) {
         std::string line;
-            std::cout << "Enter spoofed command: ";
+        std::cout << "Enter spoofed command: ";
             
-            while (line.empty()) {
-                std::getline(std::cin, line);
-            }
+        while (line.empty()) {
+            std::getline(std::cin, line);
+        }
 
-            spoofedCommand = formatCommand(charToWchar(line.c_str()));
-            if (!WriteSpoofedCommandLine(pProcess->hProcess, &pParams, peb, spoofedCommand.c_str())) {
-                return 4;
-            }
-            //DebugOutputCommandLine(pProcess->hProcess, &pParams);
+        spoofedCommand = formatCommand(charToWchar(line.c_str()));
+        if (!WriteSpoofedCommandLine(pProcess->hProcess, &pParams, peb, spoofedCommand.c_str())) {
+            return 4;
+        }
     }
     else {
         if (!WriteSpoofedCommandLine(pProcess->hProcess, &pParams, peb, spoofedCommand.c_str())) {
             return 4;
         }
-        //DebugOutputCommandLine(pProcess->hProcess, &pParams);
     }
 
+    DebugOutputCommandLine(targetExecutable, pProcess->hProcess, &pParams);
+
+
     ResumeThread(pProcess->hThread);
-    WaitForSingleObject(pProcess->hThread, INFINITY);
+    WaitForSingleObject(pProcess->hProcess, INFINITE);
+    WaitForSingleObject(pProcess->hThread, INFINITE);
+
+
     return 0;
 }
-
 
 
